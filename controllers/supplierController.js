@@ -1,4 +1,4 @@
-import { CONFLICT, CREATED, NOT_FOUND, OK } from "../constant/HttpStatus.js";
+import { BAD_REQUEST, CONFLICT, CREATED, NOT_FOUND, OK } from "../constant/HttpStatus.js";
 import StorageSchema from "../models/StorageSchema.js";
 import SupplierSchema from "../models/SupplierSchema.js";
 import { createError } from "../utils/error.js";
@@ -20,6 +20,8 @@ export const createStorage = async (req, res, next) => {
             email: req.body.email,
             address: req.body.address
         })
+        newStorage.supplier_id = supplier.id;
+        newStorage.supplier_name = supplier.name;
         await newStorage.save();
 
         supplier.storage.push({
@@ -51,17 +53,27 @@ export const updateStorage = async (req, res, next) => {
         address: req.body.address,
     };
     try {
-        // Update storage document
-        const updatedStorage = await StorageSchema.findOneAndUpdate({ id: storageID }, updateData, { new: true });
-        if (!updatedStorage) return next(createError(NOT_FOUND, "Storage not found"));
-
         // Find supplier and update storage information in the supplier's storage array
         const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
         if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
 
+        // Update storage document
+        const updatedStorage = await StorageSchema.findOneAndUpdate(
+            { id: storageID, supplier_id: supplier.id, supplier_name: supplier.name },
+            updateData,
+            { new: true }
+        );
+        if (!updatedStorage) return next(createError(NOT_FOUND, "Storage not found"));
+
         const storageIndex = supplier.storage.findIndex(storage => storage.id === storageID);
         if (storageIndex !== -1) {
-            supplier.storage[storageIndex] = { ...updateData };
+            supplier.storage[storageIndex] = {
+                id: updatedStorage.id,
+                name: updatedStorage.name,
+                password: updatedStorage.password,
+                email: updatedStorage.email,
+                address: updatedStorage.address,
+            };
             await supplier.save();
         }
 
@@ -86,7 +98,7 @@ export const deleteStorage = async (req, res, next) => {
         await supplier.save();
 
         // Delete storage document
-        const deletedStorage = await StorageSchema.findOneAndDelete({ id: storageID });
+        const deletedStorage = await StorageSchema.findOneAndDelete({ id: storageID, supplier_id: supplier.id, supplier_name: supplier.name });
         if (!deletedStorage) return next(createError(NOT_FOUND, "Storage not found"));
 
         res.status(OK).json({
@@ -124,10 +136,7 @@ export const getStorageSpecific = async (req, res, next) => {
     if (req.query.address) searchQuery["storage.address"] = req.query.address;
     try {
         const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
-
-        if (!supplier) {
-            return next(createError(NOT_FOUND, "Supplier not found"));
-        }
+        if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
 
         let filteredStorage = supplier.storage;
 
@@ -156,11 +165,15 @@ export const getStorageSpecific = async (req, res, next) => {
 };
 
 export const getStorageById = async (req, res, next) => {
-    const { storageID } = req.query;
+    const { storageID, supplierID, supplierName } = req.query;
     const { passwordStorage } = req.body;
     try {
-        const storage = await StorageSchema.findOne({ id: storageID, password: passwordStorage });
+        const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
+        if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
+
+        const storage = await StorageSchema.findOne({ id: storageID, supplier_id: supplier.id, supplier_name: supplier.name });
         if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
+        if (passwordStorage != storage.password) return next(createError(BAD_REQUEST, "Wrong password!"));
 
         res.status(OK).json({
             success: true,
@@ -173,12 +186,14 @@ export const getStorageById = async (req, res, next) => {
 }
 
 export const addProductToStorage = async (req, res, next) => {
-    const { storageID } = req.query;
+    const { storageID, supplierID, supplierName } = req.query;
     const { product_category, product_name, product_quantity } = req.body;
-
     try {
         // Find the storage document by ID
-        const storage = await StorageSchema.findOne({ id: storageID });
+        const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
+        if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
+
+        const storage = await StorageSchema.findOne({ id: storageID, supplier_id: supplier.id, supplier_name: supplier.name });
         if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
 
         // Check if the product_category already exists
@@ -189,8 +204,8 @@ export const addProductToStorage = async (req, res, next) => {
             const existingProduct = existingProductCategory.product_value.find(product => product.name === product_name);
 
             if (existingProduct) {
-                // Case 1: Update the product_quantity for an existing product
-                existingProduct.quantity = product_quantity;
+                // Case 1: Send error message for an existing product
+                return next(createError(BAD_REQUEST, "Product already exists in the category"));
             } else {
                 // Case 2: Add a new product_value object with product_name and product_quantity
                 existingProductCategory.product_value.push({
@@ -221,26 +236,92 @@ export const addProductToStorage = async (req, res, next) => {
     }
 };
 
-export const removeProductFromStorage = async (req, res, next) => {
-    const { storageID } = req.query;
-
-    // Extract product information from the request body
-    const { product_category, product_name } = req.body;
-
+export const updateProductInStorage = async (req, res, next) => {
+    const { storageID, supplierID, supplierName } = req.query;
+    const { product_category, new_product_category, product_name, new_product_name, new_product_quantity } = req.body;
     try {
         // Find the storage document by ID
-        const storage = await StorageSchema.findOne({ id: storageID });
+        const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
+        if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
 
-        if (!storage) {
-            return next(createError(NOT_FOUND, "Storage not found"));
-        }
+        const storage = await StorageSchema.findOne({ id: storageID, supplier_id: supplier.id, supplier_name: supplier.name });
+        if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
 
         // Check if the product_category exists within the products array
         const existingProductCategoryIndex = storage.products.findIndex(product => product.product_category === product_category);
 
         if (existingProductCategoryIndex !== -1) {
             const existingProductCategory = storage.products[existingProductCategoryIndex];
-            
+
+            // Check if product_name exists within the existing product_category
+            const existingProductIndex = existingProductCategory.product_value.findIndex(product => product.name === product_name);
+            if (existingProductIndex !== -1) {
+                // Case 1.1: Update the category name and all product_value (name, quantity)
+                if (new_product_category) {
+                    existingProductCategory.product_category = new_product_category;
+                }
+                if (new_product_name) {
+                    // Check if the new product_name already exists in the category
+                    const newProductIndex = existingProductCategory.product_value.findIndex(product => product.name === new_product_name);
+
+                    if (newProductIndex !== -1) {
+                        // Case 1.1: Send error message for an existing product with the new name
+                        return next(createError(BAD_REQUEST, "Product with the new name already exists in the category"));
+                    } else {
+                        existingProductCategory.product_value[existingProductIndex].name = new_product_name;
+                    }
+                }
+                if (new_product_quantity) {
+                    existingProductCategory.product_value[existingProductIndex].quantity = new_product_quantity;
+                }
+
+                await storage.save();
+                res.status(OK).json({
+                    success: true,
+                    status: OK,
+                    message: storage,
+                });
+            } else {
+                // Case 1.2: Update the category name only
+                if (new_product_category) {
+                    existingProductCategory.product_category = new_product_category;
+                }
+
+                // Save the updated storage document
+                await storage.save();
+
+                res.status(OK).json({
+                    success: true,
+                    status: OK,
+                    message: storage,
+                });
+            }
+        } else {
+            // Case 1.3: Send error message for non-existing category
+            return next(createError(BAD_REQUEST, "Product category not found in storage"));
+        }
+    } catch (err) {
+        next(err);
+    }
+};
+
+export const removeProductFromStorage = async (req, res, next) => {
+    const { storageID, supplierID, supplierName } = req.query;
+    const { product_category, product_name } = req.body;
+    try {
+        // Find the storage document by ID
+        const supplier = await SupplierSchema.findOne({ id: supplierID, name: supplierName });
+        if (!supplier) return next(createError(NOT_FOUND, "Supplier not found"));
+
+        const storage = await StorageSchema.findOne({ id: storageID, supplier_id: supplier.id, supplier_name: supplier.name });
+        if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
+
+        // Check if the product_category exists within the products array
+        const existingProductCategoryIndex = storage.products.findIndex(product => product.product_category === product_category);
+
+        if (existingProductCategoryIndex !== -1) {
+            const existingProductCategory = storage.products[existingProductCategoryIndex];
+
             // Check if product_name exists within the existing product_category
             const existingProductIndex = existingProductCategory.product_value.findIndex(product => product.name === product_name);
 

@@ -10,6 +10,12 @@ const storageSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        supplier_id: {
+            type: String
+        },
+        supplier_name: {
+            type: String
+        },
         password: {
             type: String,
             required: true,
@@ -32,7 +38,8 @@ const storageSchema = new mongoose.Schema(
                             type: String
                         },
                         quantity: {
-                            type: Number
+                            type: Number,
+                            default: 0
                         },
                     }
                 ]
