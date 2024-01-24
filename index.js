@@ -6,6 +6,7 @@ import { SYSTEM_ERROR } from './constant/HttpStatus.js';
 import cors from 'cors';
 import authRoute from "./routes/auth.js";
 import supplierRoute from "./routes/supplier.js"
+import distributorRoute from "./routes/distributor.js"
 
 const app = express();
 dotenv.config();
@@ -35,6 +36,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use("/api/auth", authRoute);
 app.use("/api/supplier", supplierRoute);
+app.use("/api/distributor", distributorRoute);
 
 app.use((err, req, res, next) => {
     const errorStatus = err.status || SYSTEM_ERROR;
