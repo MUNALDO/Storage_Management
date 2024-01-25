@@ -357,7 +357,13 @@ export const handleRequest = async (req, res, next) => {
     try {
         const updateRequest = await RequestSchema.findOneAndUpdate(
             { _id: req.params._id },
-            { $set: { status: req.body.answer_status } },
+            {
+                $set:
+                {
+                    answer_date: new Date(),
+                    status: req.body.answer_status
+                }
+            },
             { new: true }
         );
         if (!updateRequest) return next(createError(NOT_FOUND, "Request not found!"));
