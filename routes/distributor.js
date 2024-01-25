@@ -1,7 +1,7 @@
 import express from 'express';
 import { getAllStorage, getStorageById, getStorageSpecific } from '../controllers/supplierController.js';
 import { verifyTokenDistributor } from '../utils/verifyToken.js';
-import { getAllSupplier, getSupplierSpecific } from '../controllers/distributorController.js';
+import { createRequest, getAllSupplier, getSupplierSpecific } from '../controllers/distributorController.js';
 
 const router = express.Router();
 
@@ -13,5 +13,8 @@ router.get('/manage-supplier/get-specific', verifyTokenDistributor, getSupplierS
 router.get('/manage-storage/get-all', verifyTokenDistributor, getAllStorage);
 router.get('/manage-storage/get-specific', verifyTokenDistributor, getStorageSpecific);
 router.get('/manage-storage/get-by-id', verifyTokenDistributor, getStorageById);
+
+// manage request
+router.post('/manage-request/create', verifyTokenDistributor, createRequest);
 
 export default router;

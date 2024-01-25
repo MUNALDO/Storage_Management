@@ -1,4 +1,5 @@
 import { BAD_REQUEST, CONFLICT, CREATED, NOT_FOUND, OK } from "../constant/HttpStatus.js";
+import RequestSchema from "../models/RequestSchema.js";
 import StorageSchema from "../models/StorageSchema.js";
 import SupplierSchema from "../models/SupplierSchema.js";
 import { createError } from "../utils/error.js";
@@ -145,7 +146,7 @@ export const getStorageSpecific = async (req, res, next) => {
             res.status(OK).json({
                 success: true,
                 status: OK,
-                data: filteredStorage,
+                message: filteredStorage,
             });
         } else {
             // Filter the storage array based on the search criteria
@@ -156,7 +157,7 @@ export const getStorageSpecific = async (req, res, next) => {
             res.status(OK).json({
                 success: true,
                 status: OK,
-                data: filteredStorage,
+                message: filteredStorage,
             });
         }
     } catch (err) {
@@ -336,7 +337,6 @@ export const removeProductFromStorage = async (req, res, next) => {
 
                 // Save the updated storage document
                 await storage.save();
-
                 res.status(OK).json({
                     success: true,
                     status: OK,
@@ -352,3 +352,51 @@ export const removeProductFromStorage = async (req, res, next) => {
         next(err);
     }
 };
+
+export const handleRequest = async (req, res, next) => {
+    try {
+        const updateRequest = await RequestSchema.findOneAndUpdate(
+            { _id: req.params._id },
+            { $set: { status: req.body.answer_status } },
+            { new: true }
+        );
+        if (!updateRequest) return next(createError(NOT_FOUND, "Request not found!"));
+
+        const storage = await StorageSchema.findOne({ id: updateRequest.storage_id, supplier_id: updateRequest.supplier_id, supplier_name: updateRequest.supplier_name });
+        if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
+
+        const existingProductCategory = storage.products.find(product => product.product_category === updateRequest.product_category);
+        if (!existingProductCategory) return next(createError(NOT_FOUND, "Product category not found"));
+
+        const existingProductName = existingProductCategory.product_value.find(product => product.name === updateRequest.product_name);
+        if (!existingProductName) return next(createError(NOT_FOUND, "Product name not found"));
+
+        if (updateRequest.status == "accept") {
+            if (req.body.product_quantity) {
+                updateRequest.product_quantity = req.body.product_quantity;
+                existingProductName.quantity = existingProductName.quantity - req.body.product_quantity;
+                await updateRequest.save();
+                await storage.save();
+            } else {
+                existingProductName.quantity = existingProductName.quantity - updateRequest.product_quantity;
+                await updateRequest.save();
+                await storage.save();
+            }
+            res.status(OK).json({
+                success: true,
+                status: OK,
+                message: updateRequest,
+                data: storage
+            });
+        } else if (updateRequest.status == "decline") {
+            res.status(OK).json({
+                success: true,
+                status: OK,
+                message: updateRequest,
+                data: storage
+            });
+        }
+    } catch (err) {
+        next(err);
+    }
+}
