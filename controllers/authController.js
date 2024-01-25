@@ -43,7 +43,7 @@ export const loginSupplier = async (req, res, next) => {
         if (!isPasswordCorrect) return next(createError(BAD_REQUEST, "Wrong password!"))
         const token_supplier = jwt.sign(
             { id: supplier.id },
-            process.env.JWT_Supplier,
+            process.env.JWT_SUPPLIER,
             { expiresIn: "24h" },
         )
         const { password, ...otherDetails } = supplier._doc;
