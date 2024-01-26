@@ -406,3 +406,39 @@ export const handleRequest = async (req, res, next) => {
         next(err);
     }
 }
+
+export const getRequest = async (req, res, next) => {
+    const { request_date, answer_date, distributorID, supplierID, storageID, status } = req.query;
+    try {
+        let query = {};
+
+        if (request_date) {
+            query.request_date = { $gte: new Date(request_date) };
+        }
+        if (answer_date) {
+            query.answer_date = { $gte: new Date(answer_date) };
+        }
+        if (distributorID) {
+            query.distributor_id = distributorID;
+        }
+        if (supplierID) {
+            query.supplier_id = supplierID;
+        }
+        if (storageID) {
+            query.storage_id = storageID;
+        }
+        if (status) {
+            query.status = status;
+        }
+
+        // Find requests based on the constructed query
+        const requests = await RequestSchema.find(query);
+        res.status(OK).json({
+            success: true,
+            status: OK,
+            message: requests,
+        });
+    } catch (err) {
+        next(err);
+    }
+};

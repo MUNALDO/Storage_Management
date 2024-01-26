@@ -1,7 +1,7 @@
 import express from 'express';
 import { verifyTokenSupplier } from '../utils/verifyToken.js';
 import {
-    addProductToStorage, createStorage, deleteStorage, getAllStorage, getStorageById,
+    addProductToStorage, createStorage, deleteStorage, getAllStorage, getRequest, getStorageById,
     getStorageSpecific, handleRequest, removeProductFromStorage, updateProductInStorage, updateStorage
 } from '../controllers/supplierController.js';
 
@@ -20,5 +20,6 @@ router.put('/manage-storage/update-product', verifyTokenSupplier, updateProductI
 
 // manage request
 router.put('/manage-request/handle/:_id', verifyTokenSupplier, handleRequest);
+router.get('/manage-request/get-specific', verifyTokenSupplier, getRequest)
 
 export default router;

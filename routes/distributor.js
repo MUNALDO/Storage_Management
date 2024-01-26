@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllStorage, getStorageById, getStorageSpecific } from '../controllers/supplierController.js';
+import { getAllStorage, getRequest, getStorageById, getStorageSpecific } from '../controllers/supplierController.js';
 import { verifyTokenDistributor } from '../utils/verifyToken.js';
 import { createRequest, getAllSupplier, getSupplierSpecific } from '../controllers/distributorController.js';
 
@@ -16,5 +16,6 @@ router.get('/manage-storage/get-by-id', verifyTokenDistributor, getStorageById);
 
 // manage request
 router.post('/manage-request/create', verifyTokenDistributor, createRequest);
+router.get('/manage-request/get-specific', verifyTokenDistributor, getRequest)
 
 export default router;
