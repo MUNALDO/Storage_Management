@@ -1,8 +1,10 @@
 import { BAD_REQUEST, CONFLICT, CREATED, NOT_FOUND, OK } from "../constant/HttpStatus.js";
+import DistributorCompanySchema from "../models/DistributorCompanySchema.js";
 import RequestSchema from "../models/RequestSchema.js";
 import StorageSchema from "../models/StorageSchema.js";
 import SupplierSchema from "../models/SupplierSchema.js";
 import { createError } from "../utils/error.js";
+import nodemailer from "nodemailer";
 
 export const createStorage = async (req, res, next) => {
     const supplierID = req.query.supplierID;
@@ -368,6 +370,9 @@ export const handleRequest = async (req, res, next) => {
         );
         if (!updateRequest) return next(createError(NOT_FOUND, "Request not found!"));
 
+        const distributor = await DistributorCompanySchema.findOne({ id: updateRequest.distributor_id, name: updateRequest.distributor_name });
+        if (!distributor) return next(createError(NOT_FOUND, "Distributor not found"));
+
         const storage = await StorageSchema.findOne({ id: updateRequest.storage_id, supplier_id: updateRequest.supplier_id, supplier_name: updateRequest.supplier_name });
         if (!storage) return next(createError(NOT_FOUND, "Storage not found"));
 
@@ -388,6 +393,36 @@ export const handleRequest = async (req, res, next) => {
                 await updateRequest.save();
                 await storage.save();
             }
+
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: process.env.MAIL_ADDRESS,
+                    pass: process.env.MAIL_PASSWORD,
+                },
+            });
+
+            const emailSubject = `Update Request - ${updateRequest._id}`;
+
+            const emailContent = `
+                <div>
+                    <p>Hi ${distributor.id} - ${distributor.name},</p>
+                    <p>Your request has been updated.</p>
+                    <p>Request Date: ${updateRequest.request_date}</p>
+                    <p>Answer Date: ${new Date()}</p>
+                    <p>Status: ${req.body.answer_status}</p>
+                    <p>Thank you for using our service.</p>
+                </div>
+            `;
+
+            const mailOptions = {
+                from: '"No Reply" <no-reply@gmail.com>',
+                to: distributor.email,
+                subject: emailSubject,
+                html: emailContent,
+            };
+
+            await transporter.sendMail(mailOptions);
             res.status(OK).json({
                 success: true,
                 status: OK,
@@ -395,6 +430,35 @@ export const handleRequest = async (req, res, next) => {
                 data: storage
             });
         } else if (updateRequest.status == "decline") {
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: process.env.MAIL_ADDRESS,
+                    pass: process.env.MAIL_PASSWORD,
+                },
+            });
+
+            const emailSubject = `Request Update`;
+
+            const emailContent = `
+                <div>
+                    <p>Hi ${distributor.id} - ${distributor.name},</p>
+                    <p>Your request has been updated.</p>
+                    <p>Request Date: ${updateRequest.request_date}</p>
+                    <p>Answer Date: ${new Date()}</p>
+                    <p>Status: ${req.body.answer_status}</p>
+                    <p>Thank you for using our service.</p>
+                </div>
+            `;
+
+            const mailOptions = {
+                from: '"No Reply" <no-reply@gmail.com>',
+                to: distributor.email,
+                subject: emailSubject,
+                html: emailContent,
+            };
+
+            await transporter.sendMail(mailOptions);
             res.status(OK).json({
                 success: true,
                 status: OK,
@@ -431,7 +495,6 @@ export const getRequest = async (req, res, next) => {
             query.status = status;
         }
 
-        // Find requests based on the constructed query
         const requests = await RequestSchema.find(query);
         res.status(OK).json({
             success: true,

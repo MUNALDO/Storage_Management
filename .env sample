@@ -2,3 +2,5 @@ MONGO_URL=mongodb+srv://thaiboomnguyen:thai0934678855@cluster0.h3fbdlg.mongodb.n
 TZ=Europe/Berlin
 JWT_SUPPLIER=rKL+7+b3xjE5U20nV0ijpP9iCdCWv4ZMyTzWL/6SvFQ=
 JWT_DISTRIBUTOR=TqGsWAZ6tvKhRn/cj/d3ClcIqIIEYwLxcu5OZ/0j2y4=
+MAIL_ADDRESS=thainx.bi11-239@st.usth.edu.vn
+MAIL_PASSWORD=thai0934678855

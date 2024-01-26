@@ -4,6 +4,7 @@ import RequestSchema from "../models/RequestSchema.js";
 import StorageSchema from "../models/StorageSchema.js";
 import SupplierSchema from "../models/SupplierSchema.js"
 import { createError } from "../utils/error.js";
+import nodemailer from "nodemailer";
 
 export const getAllSupplier = async (req, res, next) => {
     try {
@@ -71,7 +72,7 @@ export const createRequest = async (req, res, next) => {
         const newRequest = new RequestSchema({
             request_date: new Date(),
             distributor_id: distributor.id,
-            distributor_name: distributor.name, 
+            distributor_name: distributor.name,
             distributor_address: distributor.address,
             supplier_id: supplier.id,
             supplier_name: supplier.name,
@@ -93,6 +94,37 @@ export const createRequest = async (req, res, next) => {
         if (existingProductQuantity < newRequest.product_quantity) return next(createError(BAD_REQUEST, "Product quantity not enough"));
 
         await newRequest.save();
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.MAIL_ADDRESS,
+                pass: process.env.MAIL_PASSWORD,
+            },
+        });
+
+        const emailSubject = `New Request - ${newRequest._id}`;
+
+        const emailContent = `
+            <div>
+                <p>Hi ${supplier.id} - ${supplier.name},</p>
+                <p>Please checked your newest request</p>
+                <p>Request Date: ${new Date()}</p>
+                <p>Storage: ${newRequest.storage_id} - ${newRequest.storage_name}</p>
+                <p>Category: ${newRequest.product_category}</p>
+                <p>Product Name: ${newRequest.product_name}</p>
+                <p>Product Quantity: ${newRequest.product_quantity}</p>
+                <p>Thank you for using our service.</p>
+            </div>
+        `;
+
+        const mailOptions = {
+            from: '"No Reply" <no-reply@gmail.com>',
+            to: supplier.email,
+            subject: emailSubject,
+            html: emailContent,
+        };
+
+        await transporter.sendMail(mailOptions);
         res.status(CREATED).json({
             success: true,
             status: CREATED,
